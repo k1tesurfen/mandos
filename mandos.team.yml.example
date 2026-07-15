@@ -1,0 +1,27 @@
+# mandos TEAM config — the SHARED client registry. Put this on a mounted Google Drive
+# shared drive and point each colleague's local config at it via `team_config:`.
+#
+# This file holds ONLY the `clients:` map (the single source of truth). Do NOT add
+# machine-specific settings (cloud_base) here — those are per-user, in each local file.
+# Manage entries with `mandos client add/edit/remove` (comment-preserving), not by hand.
+#
+# Sharing this file shares the client DEFINITIONS, not access. SSH keys are per-person
+# (in ~/.ssh) — each colleague installs their key on each server via
+# `mandos client add` / `mandos client setup-key`.
+#
+# CAUTION: Google Drive has no file locking. Coordinate simultaneous edits.
+
+clients:
+  acme:
+    ssh: ubuntu@acme-industrial.com   # ssh target (user@host) for the production server
+    wp_root: /var/www/acme.com        # absolute path to the WordPress install
+    # Optional fields (all consumed by tools as needed):
+    # remote_tmp: ~/.tmp              # remote staging dir (for small/quota-capped /tmp)
+    # local_host: acme.test           # local hostname override
+    # domain: acme.com                # production domain (used to derive the Drive folder)
+    # cloud_folder: acme-final.de     # PORTABLE Drive project-folder NAME under cloud_base
+    # cloud_dir: /abs/path/100_Backup # absolute Drive dir (machine-specific; discouraged)
+
+  baker:
+    ssh: root@bakery-shop.net
+    wp_root: /var/www/html

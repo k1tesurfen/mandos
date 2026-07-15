@@ -1,0 +1,7 @@
+# Built binary
+/mandos
+/bin/
+
+# Go
+*.test
+*.out

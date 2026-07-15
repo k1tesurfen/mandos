@@ -1,0 +1,12 @@
+# mandos LOCAL config — per-user, per-machine. Lives at ~/.config/mandos/mandos.yml
+# (override with MANDOS_CONFIG). Holds only machine-specific settings; the shared
+# client list lives in the team file below.
+
+# Path to the shared clients YAML on your mounted Google Drive (see
+# mandos.team.yml.example). Per-user, because every Drive mount path differs.
+# Omit to run solo — clients then live in THIS file under a `clients:` key.
+team_config: /Users/you/Library/CloudStorage/GoogleDrive-you@example.com/Shared drives/team/mandos/clients.yml
+
+# Google Drive projects root — the parent of each site's project folder. A client's
+# backups go to <cloud_base>/<project-folder>/100_Backup. Omit if you don't use cloud.
+cloud_base: /Users/you/Library/CloudStorage/GoogleDrive-you@example.com/Shared drives/team/LIVE_WEB
