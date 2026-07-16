@@ -9,6 +9,12 @@ lives, so tools like `wpsite` and `aule` don't each reimplement them.
 > is never fetched by `go get`, never sent to `proxy.golang.org` / `sum.golang.org`,
 > and can't be indexed by `pkg.go.dev`. It's a locally-built CLI; tools shell out to it.
 
+**Status: already adopted by `wpsite`.** wpsite reads the client list, SSH targets and
+cloud paths from mandos, and delegates SSH-key onboarding to `mandos client setup-key`
+— while keeping its own SSH *connection* multiplexing for backups/apply. A machine is
+configured once with `mandos config init` (below); after that wpsite's own config only
+needs `base_dir`.
+
 ## What it does
 
 - **Client registry** — a shared `clients:` map (SSH target, WP root, cloud folder, …)
@@ -54,6 +60,22 @@ mandos cloud available acme            # exit 0 if reachable, else 1
 mandos config path
 ```
 
+### Password prompts (terminal or GUI)
+
+`client add` / `client setup-key` may need a server password (for `ssh-copy-id`) or a
+passphrase (when generating your first local key). mandos wires up OpenSSH's
+`SSH_ASKPASS` so this works whether it's run from a terminal or a GUI:
+
+- **From a terminal** — ssh prompts on the terminal as usual (unchanged).
+- **Without a terminal** (e.g. launched by the mandos/wpsite GUI) — ssh can't reach
+  `/dev/tty`, so mandos points `SSH_ASKPASS` at itself (`mandos askpass`, an internal
+  subcommand) which pops a **native macOS password dialog**. The secret goes straight to
+  ssh and is never logged. `SSH_ASKPASS_REQUIRE=force` is deliberately *not* set, so the
+  terminal always wins when one is present.
+
+If the key already authenticates, mandos probes that first (`BatchMode=yes`) and skips
+the prompt entirely.
+
 Designed to be scripted: plain output by default, `--json` where it helps, and clean
 exit codes. Example (Bash):
 
@@ -65,6 +87,12 @@ if mandos cloud available acme; then
 fi
 ```
 
+## GUI
+
+A desktop front-end lives in [`mandos-gui/`](mandos-gui/) (Tauri + React/TS, same style
+as the wpsite GUI) for browsing/editing clients, installing SSH keys and configuring the
+machine — all by shelling out to this CLI. See its [README](mandos-gui/README.md).
+
 ## Layout
 
 ```
@@ -73,6 +101,7 @@ client/   client registry (list/get/set/add/remove), comment-preserving edits
 remote/   multiplexed SSH + key onboarding
 drive/    Google Drive path resolution, availability, atomic copy
 cmd/mandos/  the CLI
+mandos-gui/  Tauri + React desktop front-end (shells out to the CLI)
 ```
 
 ## Env overrides

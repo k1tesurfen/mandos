@@ -18,6 +18,9 @@ clients:
     # Optional fields (all consumed by tools as needed):
     # remote_tmp: ~/.tmp              # remote staging dir (for small/quota-capped /tmp)
     # local_host: acme.test           # local hostname override
+    # login_path: /geheim-login       # custom wp-admin/login path (WPS Hide Login,
+    #                                  # Wordfence, …); default /wp-admin/. Used by the
+    #                                  # wpsite GUI's "open admin" link.
     # domain: acme.com                # production domain (used to derive the Drive folder)
     # cloud_folder: acme-final.de     # PORTABLE Drive project-folder NAME under cloud_base
     # cloud_dir: /abs/path/100_Backup # absolute Drive dir (machine-specific; discouraged)

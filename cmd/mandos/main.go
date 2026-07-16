@@ -38,6 +38,8 @@ func main() {
 		cmdCloud(args[1:])
 	case "config":
 		cmdConfig(args[1:])
+	case "askpass":
+		cmdAskpass(args[1:])
 	case "version", "-v", "--version":
 		fmt.Println("mandos", version)
 	case "help", "-h", "--help":
@@ -62,6 +64,8 @@ func cmdClient(args []string) {
 		clientGet(args[1:])
 	case "set":
 		clientSet(args[1:])
+	case "unset":
+		clientUnset(args[1:])
 	case "add":
 		clientAdd(args[1:])
 	case "remove", "rm":
@@ -127,6 +131,15 @@ func clientSet(args []string) {
 		die("usage: mandos client set <name> <key> <value>")
 	}
 	if err := client.Set(args[0], args[1], args[2]); err != nil {
+		die("%v", err)
+	}
+}
+
+func clientUnset(args []string) {
+	if len(args) != 2 {
+		die("usage: mandos client unset <name> <key>")
+	}
+	if err := client.Unset(args[0], args[1]); err != nil {
 		die("%v", err)
 	}
 }
@@ -269,6 +282,18 @@ func cmdSSH(args []string) {
 // ---------------------------------------------------------------------------
 
 func cmdCloud(args []string) {
+	if len(args) < 1 {
+		die("usage: mandos cloud <base|path|available> [<name>]")
+	}
+	// `cloud base` prints the Drive root (no client arg); may be empty when unset.
+	if args[0] == "base" {
+		base, err := config.CloudBase()
+		if err != nil {
+			die("%v", err)
+		}
+		fmt.Println(base)
+		return
+	}
 	if len(args) < 2 {
 		die("usage: mandos cloud <path|available> <name>")
 	}
@@ -306,10 +331,38 @@ func cmdConfig(args []string) {
 	switch args[0] {
 	case "path":
 		configPath()
+	case "get":
+		configGet(args[1:])
 	case "init":
 		configInit(args[1:])
 	default:
 		die("unknown config subcommand %q", args[0])
+	}
+}
+
+// configGet prints one resolved local-config value (machine-readable, for other
+// tools). Empty output + exit 0 when the value is unset.
+func configGet(args []string) {
+	if len(args) != 1 {
+		die("usage: mandos config get <team-config|cloud-base|local>")
+	}
+	switch args[0] {
+	case "team-config":
+		t, err := config.TeamPath()
+		if err != nil {
+			die("%v", err)
+		}
+		fmt.Println(t)
+	case "cloud-base":
+		b, err := config.CloudBase()
+		if err != nil {
+			die("%v", err)
+		}
+		fmt.Println(b)
+	case "local":
+		fmt.Println(config.LocalPath())
+	default:
+		die("unknown config key %q (want: team-config|cloud-base|local)", args[0])
 	}
 }
 
@@ -356,6 +409,51 @@ func configInit(args []string) {
 		die("%v", err)
 	}
 	fmt.Printf("Wrote %s\n", config.LocalPath())
+}
+
+// ---------------------------------------------------------------------------
+// askpass (internal SSH_ASKPASS helper — intentionally not shown in usage)
+// ---------------------------------------------------------------------------
+
+// cmdAskpass is the SSH_ASKPASS bridge: OpenSSH runs `mandos askpass "<prompt>"` when it
+// needs a password/passphrase and has no controlling terminal (e.g. a GUI launched it).
+// It shows a native macOS password dialog and prints the secret to stdout for ssh to read
+// (ssh captures that pipe, so it never reaches a console). A cancelled dialog exits
+// non-zero so ssh treats it as a failed prompt. Undocumented on purpose — it's an internal
+// bridge for GUI callers, wired up automatically by remote.askpassSetup, not a user command.
+func cmdAskpass(args []string) {
+	prompt := "Passwort:"
+	if len(args) > 0 && strings.TrimSpace(args[0]) != "" {
+		prompt = args[0]
+	}
+	secret, err := askpassDialog(prompt)
+	if err != nil {
+		os.Exit(1) // cancelled, or osascript unavailable → ssh sees a failed prompt
+	}
+	fmt.Println(secret)
+}
+
+// askpassDialog shows a hidden-answer macOS dialog via osascript and returns the entry.
+// Cancel (or any osascript error) returns an error.
+func askpassDialog(prompt string) (string, error) {
+	// `cancel button` makes "Abbrechen" raise the standard cancel error (osascript exits
+	// non-zero) instead of returning the empty field as if it were the password.
+	dialog := fmt.Sprintf(
+		`display dialog %s default answer "" with hidden answer with title "mandos" buttons {"Abbrechen", "OK"} default button "OK" cancel button "Abbrechen"`,
+		appleQuote(prompt),
+	)
+	out, err := exec.Command("osascript", "-e", dialog, "-e", "text returned of result").Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimRight(string(out), "\n"), nil
+}
+
+// appleQuote renders s as an AppleScript double-quoted string literal (escaping \ and ").
+func appleQuote(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `"`, `\"`)
+	return `"` + s + `"`
 }
 
 // ---------------------------------------------------------------------------
@@ -408,6 +506,7 @@ Usage: mandos <command> …
   client list [--json]                       list client names
   client get <name> [<key>] [--json]         show a client (all fields, or one)
   client set <name> <key> <value>            set one field (comment-preserving)
+  client unset <name> <key>                  remove one field (comment-preserving)
   client add <name> --ssh <u@h> --wp-root <p> [--remote-tmp|--local-host|
              --cloud-folder|--cloud-dir|--domain <v>] [--identity <key>] [--no-key]
   client remove <name>                       delete a client entry
@@ -416,10 +515,12 @@ Usage: mandos <command> …
 
   ssh <name> [--] <command> [args…]          run a command on the client's server (muxed)
 
+  cloud base                                 print the Drive projects root (cloud_base)
   cloud path <name>                          print the client's Drive backup dir
   cloud available <name>                     exit 0 if reachable, else 1
 
   config path                                show resolved config + cloud paths
+  config get <team-config|cloud-base|local>  print one resolved value (machine-readable)
   config init [--team-config p] [--cloud-base p]   write the local config
 
   version | help

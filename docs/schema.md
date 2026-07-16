@@ -28,6 +28,7 @@ clients:
     wp_root: /abs/path        # REQUIRED — absolute path to the WordPress install
     remote_tmp: ~/.tmp        # optional — remote staging dir override
     local_host: name.test     # optional — local hostname override
+    login_path: /geheim-login # optional — custom wp-admin/login path (default /wp-admin/)
     domain: example.com       # optional — production domain (derives the Drive folder)
     cloud_folder: example.de  # optional — PORTABLE Drive project-folder NAME under cloud_base
     cloud_dir: /abs/…/100_Backup  # optional — absolute Drive dir (machine-specific; discouraged)
